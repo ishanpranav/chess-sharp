@@ -7,7 +7,7 @@ using System.Text;
 
 namespace ChessSharp;
 
-[DebuggerDisplay("{ToDebugString}")]
+[DebuggerDisplay("{DebuggerDisplay}")]
 public class Trie<T> : IDictionary<string, T>
 {
     public Trie() { }
@@ -24,7 +24,7 @@ public class Trie<T> : IDictionary<string, T>
 
             foreach (char symbol in key)
             {
-                current = current[symbol];
+                current = current.Children.GetValueOrDefault(symbol);
 
                 if (current is null)
                 {
@@ -70,7 +70,7 @@ public class Trie<T> : IDictionary<string, T>
 
         foreach (char symbol in key)
         {
-            TrieNode<T>? child = current[symbol];
+            TrieNode<T>? child = current.Children.GetValueOrDefault(symbol);
 
             if (child is null)
             {
@@ -102,23 +102,18 @@ public class Trie<T> : IDictionary<string, T>
 
     public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
     {
-        TrieNode<T>? current = Root;
-
-        foreach (char symbol in key)
+        try
         {
-            current = current[symbol];
+            value = this[key];
 
-            if (current is null)
-            {
-                value = default;
-
-                return false;
-            }
+            return true;
         }
+        catch (KeyNotFoundException)
+        {
+            value = default;
 
-        value = current.Value;
-
-        return true;
+            return false;
+        }
     }
 
     public bool Remove(string key)
@@ -141,39 +136,51 @@ public class Trie<T> : IDictionary<string, T>
         throw new NotImplementedException();
     }
 
-    public string ToDebugString()
+    public string DebuggerDisplay
     {
-        StringBuilder stringBuilder = new StringBuilder();
-        Stack<(TrieNode<T>, int)> stack = new Stack<(TrieNode<T>, int)>();
-
-        stack.Push((Root, 0));
-
-        while (stack.Count > 0)
+        get
         {
-            (TrieNode<T> node, int depth) current = stack.Pop();
+            StringBuilder result = new StringBuilder();
+            Stack<(char, TrieNode<T>, int depth)> stack = new Stack<(char, TrieNode<T>, int)>();
 
-            for (int depth = 0; depth < current.depth - 1; depth++)
+            stack.Push((default, Root, depth: 0));
+
+            while (stack.TryPop(out (char symbol, TrieNode<T> node, int depth) current))
             {
-                stringBuilder.Append(' ', repeatCount: 3);
+                for (int depth = 0; depth < current.depth - 1; depth++)
+                {
+                    result.Append(' ', repeatCount: 3);
+                }
+
+                if (current.depth >= 1)
+                {
+                    result.Append("-->");
+                }
+
+                result.Append(current.symbol);
+
+                if (current.node.IsTerminal)
+                {
+                    T value = current.node.Value;
+
+                    if (value is not null)
+                    {
+                        result
+                            .Append(value)
+                            .AppendLine();
+                    }
+                }
+
+                foreach (KeyValuePair<char, TrieNode<T>> child in current.node.Children)
+                {
+                    stack.Push((child.Key, child.Value, current.depth + 1));
+                }
+
+                result.AppendLine();
             }
 
-            if (current.depth >= 1)
-            {
-                stringBuilder.Append("-->");
-            }
-
-            stringBuilder.Append(current.node);
-            stringBuilder.Append(current.node.Value);
-
-            foreach (TrieNode<T> child in current.node)
-            {
-                stack.Push((child, current.depth + 1));
-            }
-
-            stringBuilder.AppendLine();
+            return result.ToString();
         }
-
-        return stringBuilder.ToString();
     }
 
     public IEnumerator<KeyValuePair<string, T>> GetEnumerator()

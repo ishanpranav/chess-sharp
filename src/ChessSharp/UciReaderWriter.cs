@@ -42,7 +42,7 @@ public class UciReaderWriter : IDisposable
             }
             else if (keepReading)
             {
-                TrieNode<int>? child = current[symbol];
+                TrieNode<int>? child = current.Children[symbol];
 
                 if (child is null)
                 {

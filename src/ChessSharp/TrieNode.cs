@@ -1,16 +1,23 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace ChessSharp;
 
-public class TrieNode<T> : IEnumerable<TrieNode<T>>
+public class TrieNode<T>
 {
     private readonly Dictionary<char, TrieNode<T>> _children = new Dictionary<char, TrieNode<T>>();
 
     private T? _value;
 
     public TrieNode() { }
+
+    public IReadOnlyDictionary<char, TrieNode<T>> Children
+    {
+        get
+        {
+            return _children;
+        }
+    }
 
     public T Value
     {
@@ -32,33 +39,13 @@ public class TrieNode<T> : IEnumerable<TrieNode<T>>
 
     public bool IsTerminal { get; private set; }
 
-    public TrieNode<T>? this[char symbol]
-    {
-        get
-        {
-            _children.TryGetValue(symbol, out TrieNode<T>? result);
-
-            return result;
-        }
-    }
-
-    public void Add(char symbol, TrieNode<T> child)
+    internal void Add(char symbol, TrieNode<T> child)
     {
         _children.Add(symbol, child);
     }
 
-    public void Clear()
+    internal void Clear()
     {
         _children.Clear();
-    }
-
-    public IEnumerator<TrieNode<T>> GetEnumerator()
-    {
-        return _children.Values.GetEnumerator();
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return _children.Values.GetEnumerator();
     }
 }
