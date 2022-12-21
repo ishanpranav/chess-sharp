@@ -1,145 +1,188 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace Trie
+namespace ChessSharp;
+
+[DebuggerDisplay("{ToDebugString}")]
+public class Trie<T> : IDictionary<string, T>
 {
-    public class Trie<E>
+    public Trie() { }
+
+    public TrieNode<T> Root { get; } = new TrieNode<T>();
+
+    public int Count { get; private set; }
+
+    public T this[string key]
     {
-        private class Node
+        get
         {
-            private char key;
-            private E value;
-            private Dictionary<char, Node> children;
-            private bool isTerminal;
+            TrieNode<T>? current = Root;
 
-            public Node(char key)
+            foreach (char symbol in key)
             {
-                this.key = key;
-                this.children = new Dictionary<char, Node>();
-                this.isTerminal = false;
-            }
+                current = current[symbol];
 
-            public Node(E value)
-            {
-                this.value = value;
-                this.isTerminal = true;
-                this.children = null;
-            }
-
-            public bool IsTerminal()
-            {
-                return isTerminal;
-            }
-
-            public Dictionary<char, Node> GetChildren()
-            {
-                return children;
-            }
-
-            public E GetValue()
-            {
-                return value;
-            }
-
-            public String ToString()
-            {
-                if (children == null)
+                if (current is null)
                 {
-                    return key + ": " + value;
-                }
-                return "(" + key + ")";
-            }
-        }
-
-        private Node root;
-        private int size;
-
-        public Trie()
-        {
-            root = new Node(default(char));
-        }
-
-        public Trie(string[] entries, E[] values)
-        {
-            root = new Node(default(char));
-        }
-
-        public void Insert(string key, E value)
-        {
-            Node curr = root;
-
-            foreach (char c in key)
-            {
-                if (!curr.GetChildren().ContainsKey(c))
-                {
-                    curr.GetChildren().Add(c, new Node(c));
-                    curr = curr.GetChildren()[c];
-                }
-                else
-                {
-                    curr = curr.GetChildren()[c];
+                    throw new KeyNotFoundException();
                 }
             }
 
-            curr.GetChildren().Add(default(char), new Node(value));
+            return current.Value;
         }
-
-        public E Find(string key)
+        set
         {
-            Node curr = root;
+            Add(key, value);
+        }
+    }
 
-            foreach (char c in key)
+    public ICollection<string> Keys
+    {
+        get
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public ICollection<T> Values
+    {
+        get
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public bool IsReadOnly
+    {
+        get
+        {
+            return false;
+        }
+    }
+
+    public void Add(string key, T value)
+    {
+        TrieNode<T> current = Root;
+
+        foreach (char symbol in key)
+        {
+            TrieNode<T>? child = current[symbol];
+
+            if (child is null)
             {
-                curr = curr.GetChildren()[c];
+                child = new TrieNode<T>();
+
+                current.Add(symbol, child);
             }
 
-            curr = curr.GetChildren()[default(char)];
-            return curr.GetValue();
+            current = child;
         }
 
-        public string ToString()
+        current.Value = value;
+    }
+
+    void ICollection<KeyValuePair<string, T>>.Add(KeyValuePair<string, T> item)
+    {
+        Add(item.Key, item.Value);
+    }
+
+    public bool ContainsKey(string key)
+    {
+        return TryGetValue(key, out _);
+    }
+
+    bool ICollection<KeyValuePair<string, T>>.Contains(KeyValuePair<string, T> item)
+    {
+        return TryGetValue(item.Key, out _);
+    }
+
+    public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
+    {
+        TrieNode<T>? current = Root;
+
+        foreach (char symbol in key)
         {
-            StringBuilder sb = new StringBuilder();
+            current = current[symbol];
 
-            Stack<KeyValuePair<Node, int>> stack = new Stack<KeyValuePair<Node, int>>();
-            stack.Push(new KeyValuePair<Node, int>(root, 0));
-
-            while (stack.Count > 0)
+            if (current is null)
             {
-                KeyValuePair<Node, int> curr = stack.Pop();
+                value = default;
 
-                for (int x = 0; x < curr.Value - 1; x++)
-                {
-                    sb.Append("   ");
-                }
-                if (curr.Value >= 1)
-                {
-                    sb.Append("-->");
-                }
-                sb.Append(curr.Key.ToString());
+                return false;
+            }
+        }
 
-                if (curr.Key.GetChildren() == null)
-                {
-                    sb.Append("\n");
-                    continue;
-                }
+        value = current.Value;
 
-                foreach (KeyValuePair<char, Node> pair in curr.Key.GetChildren())
-                {
-                    stack.Push(new KeyValuePair<Node, int>(pair.Value, curr.Value + 1));
-                }
-                sb.Append("\n");
+        return true;
+    }
+
+    public bool Remove(string key)
+    {
+        throw new NotImplementedException();
+    }
+
+    bool ICollection<KeyValuePair<string, T>>.Remove(KeyValuePair<string, T> item)
+    {
+        return Remove(item.Key);
+    }
+
+    public void Clear()
+    {
+        Root.Clear();
+    }
+
+    public void CopyTo(KeyValuePair<string, T>[] array, int arrayIndex)
+    {
+        throw new NotImplementedException();
+    }
+
+    public string ToDebugString()
+    {
+        StringBuilder stringBuilder = new StringBuilder();
+        Stack<(TrieNode<T>, int)> stack = new Stack<(TrieNode<T>, int)>();
+
+        stack.Push((Root, 0));
+
+        while (stack.Count > 0)
+        {
+            (TrieNode<T> node, int depth) current = stack.Pop();
+
+            for (int depth = 0; depth < current.depth - 1; depth++)
+            {
+                stringBuilder.Append(' ', repeatCount: 3);
             }
 
-            return sb.ToString();
+            if (current.depth >= 1)
+            {
+                stringBuilder.Append("-->");
+            }
+
+            stringBuilder.Append(current.node);
+            stringBuilder.Append(current.node.Value);
+
+            foreach (TrieNode<T> child in current.node)
+            {
+                stack.Push((child, current.depth + 1));
+            }
+
+            stringBuilder.AppendLine();
         }
 
-        public int getSize()
-        {
-            return size;
-        }
+        return stringBuilder.ToString();
+    }
+
+    public IEnumerator<KeyValuePair<string, T>> GetEnumerator()
+    {
+        throw new NotImplementedException();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        throw new NotImplementedException();
     }
 }

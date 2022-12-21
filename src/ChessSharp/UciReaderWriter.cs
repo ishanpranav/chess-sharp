@@ -1,16 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace ChessSharp;
 
 public class UciReaderWriter : IDisposable
 {
-    private readonly Stream _input;
-    private readonly Stream _output;
+    private readonly TextReader _input;
+    private readonly TextWriter _output;
 
     private bool _disposed;
 
-    public UciReaderWriter(Stream input, Stream output)
+    public UciReaderWriter(TextReader input, TextWriter output)
     {
         _input = input;
         _output = output;
@@ -18,13 +19,53 @@ public class UciReaderWriter : IDisposable
 
     public void Start()
     {
-        using StreamReader streamReader = new StreamReader(_input);
-
         int read;
-
-        while ((read = streamReader.Read()) is not -1)
+        bool keepReading = true;
+        Trie<int> commands = new Trie<int>()
         {
+            { "uci", 1 },
+            { "isready", 2 }
+        };
+        TrieNode<int> current = commands.Root;
+        Queue<int> instructions = new Queue<int>();
 
+        while ((read = _input.Read()) is not -1)
+        {
+            char symbol = (char)read;
+
+            if (char.IsWhiteSpace(symbol))
+            {
+                enqueue();
+
+                current = commands.Root;
+                keepReading = true;
+            }
+            else if (keepReading)
+            {
+                TrieNode<int>? child = current[symbol];
+
+                if (child is null)
+                {
+                    keepReading = false;
+                    current = commands.Root;
+                }
+                else
+                {
+                    current = child;
+                }
+            }
+        }
+
+        enqueue();
+
+        void enqueue()
+        {
+            if (current.IsTerminal)
+            {
+                Console.WriteLine(current.Value);
+
+                instructions.Enqueue(current.Value);
+            }
         }
     }
 
